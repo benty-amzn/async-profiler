@@ -1,0 +1,52 @@
+name: check-otel-proto-updates
+on:
+  schedule:
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: corretto
+          java-version: 25
+      - name: Update OTLP classes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          version=$(gh api repos/open-telemetry/opentelemetry-proto/releases/latest --jq .tag_name)
+          branch="update-otlp-classes/${version}"
+          [ "$(gh pr list --state all --head "${branch}" --json number --jq length)" = "0" ] || exit 0
+          tag=$(gh release view --repo protocolbuffers/protobuf --json tagName --jq .tagName)
+          pb_version="4.${tag#v}"
+          mkdir -p test/deps
+          curl -fL -o "test/deps/protobuf-java-${pb_version}.jar" \
+            "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java/${pb_version}/protobuf-java-${pb_version}.jar"
+          gh release download "${tag}" --repo protocolbuffers/protobuf --pattern "protoc-${tag#v}-linux-x86_64.zip" --dir /tmp
+          unzip -q -d /tmp/protoc "/tmp/protoc-${tag#v}-linux-x86_64.zip"
+          export PATH="/tmp/protoc/bin:${PATH}"
+          git clone --depth 1 --branch "${version}" https://github.com/open-telemetry/opentelemetry-proto.git /tmp/otel-proto
+          mkdir -p /tmp/gen/java /tmp/build test/gen
+          cd /tmp/otel-proto
+          protoc --java_out=/tmp/gen/java \
+            $(find . -type f -name '*.proto' -not \( -name 'logs*.proto' -o -name 'metrics*.proto' -o -name 'trace*.proto' -o -name '*service.proto' \))
+          java_target=$(grep '^JAVA_TARGET=' "${GITHUB_WORKSPACE}/Makefile" | cut -d= -f2)
+          javac -source "${java_target}" -target "${java_target}" -Xlint:-options \
+            -cp "${GITHUB_WORKSPACE}/test/deps/*" -d /tmp/build $(find /tmp/gen/java -name '*.java')
+          jar cf "${GITHUB_WORKSPACE}/test/gen/opentelemetry-gen-classes.jar" -C /tmp/build .
+          cd "${GITHUB_WORKSPACE}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B "${branch}"
+          git add test/gen/opentelemetry-gen-classes.jar
+          git commit -m "chore: Update OTLP generated classes to ${version}"
+          git push --force-with-lease -u origin "${branch}"
+          gh pr create \
+            --title "chore: Update OTLP generated classes to ${version}" \
+            --body "Update \`opentelemetry-gen-classes.jar\` to [${version}](https://github.com/open-telemetry/opentelemetry-proto/releases/tag/${version})."
