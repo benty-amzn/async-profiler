@@ -111,6 +111,7 @@ class Profiler {
     void onThreadStart(jvmtiEnv* jvmti, JNIEnv* jni, jthread thread);
     void onThreadEnd(jvmtiEnv* jvmti, JNIEnv* jni, jthread thread);
     void onGarbageCollectionFinish();
+    void updateThreadName(jvmtiEnv* jvmti, JNIEnv* jni, jthread thread);
 
     const char* asgctError(int code);
     int tryLock(int tid);
@@ -119,9 +120,9 @@ class Profiler {
     int getJavaTraceAsync(void* ucontext, ASGCT_CallFrame* frames, int max_depth);
     int getJavaTraceJvmti(jvmtiFrameInfo* jvmti_frames, ASGCT_CallFrame* frames, int start_depth, int max_depth);
     void setThreadInfo(int tid, const char* name, jlong java_thread_id);
-    void updateThreadName(jvmtiEnv* jvmti, JNIEnv* jni, jthread thread);
     void updateJavaThreadNames();
     void updateNativeThreadNames();
+    void applyThreadFilter();
     void mangle(const char* name, char* buf, size_t size);
     Engine* selectEngine(Arguments& args);
     Engine* selectAllocEngine(bool tlab);

@@ -294,7 +294,10 @@ Error Arguments::parse(const char* args) {
 
             // Filters
             CASE("filter")
-                _filter = value == NULL ? "" : value;
+                _filter_enabled = true;
+                if (value != NULL && value[0] != 0 && !parseThreadFilter(value)) {
+                    msg = "Filter pattern must be '+' or '-' followed by a thread name pattern";
+                }
 
             CASE("include")
                 _include.push_back(value);
@@ -555,6 +558,15 @@ int Arguments::parseTimeout(const char* str) {
     int mm = p[1] >= '0' && p[1] <= '5' ? atoi(p + 1) : 0xff;
     int ss = (p = strchr(p + 1, ':')) != NULL && p[1] >= '0' && p[1] <= '5' ? atoi(p + 1) : 0xff;
     return 0xff000000 | hh << 16 | mm << 8 | ss;
+}
+
+bool Arguments::parseThreadFilter(const char* pattern) {
+    if ((pattern[0] != '+' && pattern[0] != '-') || pattern[1] == 0) {
+        return false;
+    }
+
+    (pattern[0] == '+' ? _threadfilter_include : _threadfilter_exclude).push_back(pattern + 1);
+    return true;
 }
 
 bool Arguments::parseRateLimit(char* str) {
