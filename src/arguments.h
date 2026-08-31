@@ -320,6 +320,8 @@ class Arguments {
                (!_trace.empty()     ? 1 << EC_TRACE      : 0);
     }
 
+    static bool isUrl(const char* file);
+
     static long parseUnits(const char* str, const Multiplier* multipliers);
 };
 
