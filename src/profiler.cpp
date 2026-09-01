@@ -138,9 +138,6 @@ void Profiler::onThreadStart(jvmtiEnv* jvmti, JNIEnv* jni, jthread thread) {
 
 void Profiler::onThreadEnd(jvmtiEnv* jvmti, JNIEnv* jni, jthread thread) {
     updateThreadName(jvmti, jni, thread);
-    if (_thread_filter.enabled()) {
-        _thread_filter.remove(OS::threadId());
-    }
 }
 
 void Profiler::onGarbageCollectionFinish() {
